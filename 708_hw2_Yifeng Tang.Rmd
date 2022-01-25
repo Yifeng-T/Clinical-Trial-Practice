@@ -1,0 +1,229 @@
+---
+title: "708_hw2_yifeng"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+library 
+```{r}
+library(dplyr)
+library(glue)
+library(ggplot2)
+```
+# Q1 simple randomization
+1) Generate 50 patients for a randomized cancer clinical trial and use simple randomization method to assign these patients to treatment A and treatment B with equal allocation. What is the number of patients allocated to treatment A and B in the one realization of the trial, respectively.
+```{r}
+set.seed(2022)
+sample = rbinom(50, 1, 0.5)
+
+# in sample, item = 0 indicates in treatment A, while item = 1 indicates in treatment b
+Treat_A = sum(sample == 0)
+Treat_B = sum(sample == 1)
+
+```
+After set.seed, there are r`Treat_A` observations in treatment A, while there are r`Treat_B` observations in treatment B.
+
+
+2) Use simulation by repeating (1) 10,000 times to estimate the probability that the simple randomization scheme yields an uneven treatment allocation as extreme as or more extreme than 18:32 for treatment A versus treatment B.
+```{r}
+set.seed(2022)
+Proportion = c()
+Treat_A = 0
+Treat_B = 0
+thresh = 18/32
+
+for (i in seq(1:10000)){
+  sample = rbinom(50, 1, 0.5)
+  Treat_A = sum(sample == 0)
+  Treat_B = sum(sample == 1)
+  
+  Proportion = c(Proportion, Treat_A/Treat_B)
+}
+
+prob = sum(Proportion<=thresh)/10000
+```
+After set.seed, the probability is r`prob`.
+
+
+3) Use mathematical derivation to calculate the probability that the simple randomization scheme yields an uneven treatment allocation as extreme as or more extreme than 18:32 for treatment A versus treatment B.
+```{r}
+pbinom(18,50,0.5)
+```
+
+# q2 Stratified Permuted Block Randomization
+1)
+i) Generate data of 200 patients with three baseline covariates: age groups, gender, performance status and randomize these patients with equal allocation to treatment A and treatment B using simple randomization method. The three covariates should be drawn from the following distriubtion:
+• 50%, 50% for gender (M, F)
+• 15%, 20%, 40%, 25% for age groups (40-50], (50-60], (60-70], (70-80] years
+• 50%, 30%, 20% for performance status (ps) (0,1,2)
+
+```{r}
+set.seed(2022)
+#gender:
+gender1 = rep(c("M"),times=0.5*200)
+gender2 = rep(c("F"),times=0.5*200)
+gender = c(gender1, gender2)
+gender = sample(gender)
+
+#age:
+age1 = rep(c("(40-50]"),times=0.15*200)
+age2 = rep(c("(50-60]"),times=0.2*200)
+age3 = rep(c("(60-70]"),times=0.4*200)
+age4 = rep(c("(70-80]"),times=0.25*200)
+age = c(age1, age2, age3, age4)
+age = sample(age)
+
+#status:
+status1 = rep(c(0),times=0.5*200)
+status2 = rep(c(1),times=0.3*200)
+status3 = rep(c(2),times=0.2*200)
+status = c(status1, status2, status3)
+status = sample(status)
+
+index = seq(1:200)
+
+table = data.frame(index, gender, age, status)
+arm = c("A", "B")
+trt = sample(arm, 200, replace=TRUE, prob=c(0.5, 0.5))
+
+
+table1 = data.frame(index, trt, gender, age, status)
+head(table1)
+```
+
+ii) Let us call step (i) one realization of the simulation. Repeat (i) 10,000 times and make sure different sets of 200 patients are drawn from the same distribution of the baseline covariates.
+```{r}
+simu = list()
+for (i in seq(1:10000)){
+  arm = c("A", "B")
+  trt = sample(arm, 200, replace=TRUE, prob=c(0.5, 0.5))
+  
+  out = data.frame(index, trt, gender, age, status)
+  
+  item = list(out)
+  #simu is a list of dataframes
+  simu = c(simu, item)
+  
+}
+```
+
+
+iii) Based on the simulation result in (ii), plot the proportion of the trial realizations over degree of
+treatment assignment balance. For each realization, the degree of treatment assignment balance is
+calculated by nmin , where nmin is the number of patients allocated to the treatment with smaller size nmax
+and nmax is the number of patients allocated to the treatment with bigger size, and it ranges from extreme imbalance 0 to perfect balance 1.
+```{r}
+
+propor = c()
+
+for (i in seq(1:10000)){
+  item_a = sum(simu[[i]]$trt == "A")
+  item_b = sum(simu[[i]]$trt == "B")
+  p = ifelse(item_a<item_b, item_a/item_b, item_b/item_a)
+  propor = c(propor, p)
+}
+propor = na.omit(propor)
+df = data.frame(propor)
+ggplot(df, aes(x = propor)) + 
+  geom_histogram(aes(y = ..density..),
+                 colour = 1, fill = "white")+xlim(0,1.5)+xlab("Porportion")+ggtitle("Simple Random Sampling for Overall Data")+ylab("Density")
+```
+
+
+iv)Based on the simulation result in (ii), plot the proportion of the trial realizations over degree of treatment assignment balance for the stratum of gender=F, age=(70,80] and ps=2.
+```{r}
+
+propor = c()
+
+for (i in seq(1:10000)){
+  item = simu[[i]]%>%filter(gender == "F" & status == 2 & age == "(70-80]")
+  
+  item_a = sum(item$trt == "A")
+  item_b = sum(item$trt == "B")
+  p = ifelse(item_a<item_b, item_a/item_b, item_b/item_a)
+  propor = c(propor, p)
+}
+
+propor = na.omit(propor)
+df = data.frame(propor)
+ggplot(df, aes(x = propor)) + 
+  geom_histogram(aes(y = ..density..),
+                 colour = 1, fill = "white")+xlim(0,1.5)+xlab("Porportion")+ggtitle("Simple Random Sampling for Specific set")+ylab("Density")
+```
+
+2) Complete the same tasks in (1) by stratified permuted block randomization method with a block size 4 with the three baseline covariates as stratification factors.
+```{r}
+#simulate 10000 trials of sampling
+simu = c()
+for (i in seq(1:10000)){
+  t = c()
+  g = c()
+  a = c()
+  s = c()
+  for (m in unique(age)){
+    for (n in unique(status)){
+      for (k in unique(gender)){
+        num = nrow(table%>%filter(age == m & status == n & gender == k))
+        #print(num)
+        trt_item = c()
+        while(num>=4){
+          trt_item = c(trt_item, sample(c("A", "A", "B", "B")))
+          #print(trt_item)
+          num = num - 4
+        }
+        
+        trt_item = c(trt_item, sample(c("A", "B"), num, replace = TRUE, prob = c(0.5, 0.5)))
+        t = c(t, trt_item)
+        nr = nrow(table%>%filter(age == m & status == n & gender == k))
+        g = c(g,rep(k,times=nr))
+        a = c(a,rep(m,times=nr))
+        s = c(s,rep(n,times=nr))
+      }
+    }
+  }
+  table = data.frame(index, t, g, a, s)
+  simu = c(simu, list(table))
+}
+  
+```
+
+```{r}
+
+propor = c()
+
+for (i in seq(1:10000)){
+  item_a = sum(simu[[i]]$t == "A")
+  item_b = sum(simu[[i]]$t == "B")
+  p = ifelse(item_a<item_b, item_a/item_b, item_b/item_a)
+  propor = c(propor, p)
+}
+propor = na.omit(propor)
+df = data.frame(propor)
+ggplot(df, aes(x = propor)) + 
+  geom_histogram(aes(y = ..density..),
+                 colour = 1, fill = "white")+xlim(0,1.2)+xlab("Porportion")+ggtitle("Stratified Block Sampling for Overall")+ylab("Density")
+```
+
+
+```{r}
+
+propor = c()
+
+for (i in seq(1:10000)){
+  item = simu[[i]]%>%filter(g == "F" & s == 2 & a == "(70-80]")
+  
+  item_a = sum(item$t == "A")
+  item_b = sum(item$t == "B")
+  p = ifelse(item_a<item_b, item_a/item_b, item_b/item_a)
+  propor = c(propor, p)
+}
+propor = na.omit(propor)
+df = data.frame(propor)
+ggplot(df, aes(x = propor)) + 
+  geom_histogram(aes(y = ..density..),
+                 colour = 1, fill = "white")+xlim(0,1.5) +xlab("Porportion")+ggtitle("Stratified Block Sampling for Specific")+ylab("Density")
+```
+
