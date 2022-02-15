@@ -1,0 +1,40 @@
+---
+title: "708_HW3"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(dplyr)
+table = read.csv("armd.csv")
+```
+
+
+# q1
+```{r}
+model_a <- lm(data = data, Diff24 ~ Treat)
+mu_s <- coef(model_a)[1]
+alpha <- coef(model_a)[2]
+
+model_b <- lm(data = data, Diff52 ~ Treat)
+mu_t <- coef(model_b)[1]
+beta <- coef(model_b)[2]
+
+model_c <- lm(data = data, Diff52 ~ Diff24)
+mu <- coef(model_c)[1]
+gamma <- coef(model_c)[2]
+
+model_d <- lm(data = data, Diff52 ~ Treat + Diff24)
+mu_t_h <- coef(model_d)[1]
+beta_s <- coef(model_d)[2]
+gamma_z <- coef(model_d)[3]
+
+PE = (beta - beta_s)/beta
+PE
+```
+
+# q2
+```{r}
+pbinom(3, 16, 0.15)
+pbinom(3, 16, 0.4)
+```
